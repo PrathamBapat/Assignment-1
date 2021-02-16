@@ -1,0 +1,241 @@
+---
+title: "Assignment 1A - IDS 572"
+author: "Prathamesh Bapat . Reza Amini . So Hee Choi"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+---
+
+```{r}
+#Ignore this - To knit the related output to min 10 lines
+library(knitr)
+hook_output <- knit_hooks$get("output")
+knit_hooks$set(output = function(x, options) {
+  lines <- options$output.lines
+  if (is.null(lines)) {
+    return(hook_output(x, options))  # pass to default hook
+  }
+  x <- unlist(strsplit(x, "\n"))
+  more <- "..."
+  if (length(lines)==1) {        # first n lines
+    if (length(x) > lines) {
+      # truncate the output, but add ....
+      x <- c(head(x, lines), more)
+    }
+  } else {
+    x <- c(more, x[lines], more)
+  }
+  # paste these lines together
+  x <- paste(c(x, ""), collapse = "\n")
+  hook_output(x, options)
+})
+```
+# Phase A
+
+## 1) Describe the business model for online lending platforms like Lending Club. Consider the stakeholders and their roles, and what advantages Lending Club offers. What is the attraction for investors? How does the platform make money? (Not more than 1.5 pages, single spaced, 11 pt font. Please cite your sources).
+
+If you get a loan from a bank, the bank will use some of its assets, which are securities made through accounts by other customers, to finance the loan. In peer lending, lenders are indirectly connected compared investors via a lending digital medium. Investors get to know and choose exactly what kind of loans they want to finance/invest. P2P loans in general are personal loans or small business loans.
+
+P2P lending via digital medium is attractive to investors because it offers better interest on their investments and also make it their personal choice in what to invest into. 
+
+Market lenders make money by lending money to borrowers and taking a percentage of the interest earned on the loan. Usually, lenders will charge a start-up fee, usually 1% to 7% of the total loan amount, and late payments to lenders. On the investment side, lenders will take a percentage of the interest earned on the loan. Hence, this way they make money and run a big profitable business.
+
+## 2) Data exploration
+### (a) Some questions to consider:
+### (i) What is the proportion of defaults (‘charged off’ vs ‘fully paid’ loans) in the data? How does default rate vary with loan grade? Does it vary with sub-grade? And is this what you would expect, and why?
+```{r one, output.lines=30}
+data <- read.csv("lcDataSample5m.csv")
+tbl <- table(data$loan_status)
+res <- cbind(tbl,round(prop.table(tbl)*100,2))
+colnames(res) <- c("status","grade")
+res
+```
+```{r two, output.lines=30}
+library(dplyr)
+df <- data[,c("loan_status","grade")]
+df2 <- add_count(df, loan_status, grade)
+colnames(df2) <- c("status","grade","total count")
+df2 <- df2[!duplicated(t(apply(df2, 1, sort))),]
+df2
+```
+The proportion is roughly around 85% for fully paid and 15% for charged off. The status does vary with the grade and sub-grade. Grades and sub grades with lower values have a high proportion of loans getting charged off in comparison to the higher values in a good first glance. And, yes we expect this because this is the very reason why the grades were given in the first place.
+
+### (ii) How many loans are there in each grade? And do loan amounts vary by grade? Does interest rate for loans vary with grade, subgrade? Look at the average, standard-deviation, min and max of interest rate by grade and subgrade. Is this what you expect, and why?
+```{r three, output.lines=30}
+df <- data %>% add_count(grade)
+df2 <- df[,c("grade","n")]
+df2 <- df2[!duplicated(t(apply(df2, 1, sort))),]
+df2
+```
+As you can see via the output of chunk3 all grade values have certain frequency with "C" grade having the largest value and "G" being the lowest.
+```{r four, output.lines=20}
+library(dplyr)
+df <- data[,c("loan_amnt","grade")]
+df <- df %>% group_by(grade) %>% summarise(median_loan_amnt = median(loan_amnt), mean_loan_amnt = mean(loan_amnt))
+df
+```
+The loan amount doesn't vary dpending on the grade. Only a slight variation is visible.
+
+```{r five, output.lines=30}
+library(dplyr)
+df <- data[,c("grade","int_rate")]
+df_A <- df[df$grade == "A", "int_rate"]
+print("For grade A")
+summary(df_A)
+
+df_B <- df[df$grade == "B", "int_rate"]
+print("For grade B")
+summary(df_B)
+
+df_C <- df[df$grade == "C", "int_rate"]
+print("For grade C")
+summary(df_C)
+
+df_D <- df[df$grade == "D", "int_rate"]
+print("For grade D")
+summary(df_D)
+
+df_E <- df[df$grade == "E", "int_rate"]
+print("For grade E")
+summary(df_E)
+
+df_F <- df[df$grade == "F", "int_rate"]
+print("For grade F")
+summary(df_F)
+
+df_G <- df[df$grade == "G", "int_rate"]
+print("For grade G")
+summary(df_G)
+
+```
+The loan interest rate increases with the value of your grade. Lower the grade higher the interest. Yes, this was expected because that's how these lending club works by charging higher interest rates to more unsecured loans.
+
+### (iii)What are people borrowing money for (purpose)? Examine how many loans, average amounts, etc. by purpose? And within grade? Do defaults vary by purpose?
+```{r six, output.lines=30}
+df <- data[,c("purpose")]
+df <- unique(df)
+print("Different reasons people are borrowing money for as follows:-")
+df
+
+#code to find sum
+df <- data[,c("purpose","loan_amnt")]
+df <- df%>% add_count(purpose) %>% group_by(purpose) %>% do({
+        sum_value = sum(distinct(., purpose, loan_amnt)$loan_amnt);
+        mutate(., sum_value = sum_value)
+    })
+df2 <- df[,c("purpose","n","sum_value")]
+df2 <- df2[!duplicated(t(apply(df2, 1, sort))),]
+df2 <- transform(df2, avg = sum_value / n)
+df2
+
+library(dplyr)
+df <- data[,c("loan_status","purpose")]
+df2 <- df %>% group_by(loan_status) %>% add_count(loan_status, purpose)
+df2 <- df2[!duplicated(t(apply(df2, 1, sort))),]
+df2
+
+```
+People are borrowing money for various different reasons as it can be seen in chunk6 output. For each specific purpose all the amount loaned out is shown in the output. And as we can see from the last output of the chunk6 the default number varies in accordance with that of the purpose.
+
+### For loans which are fully paid back, how does the time-to-full-payoff vary? For this, calculate the ‘actual term’ (issue-date to last-payment-date) for all loans. How does this actual-term vary by loan grade (a box-plot can help visualize this).
+```{r seven, output.lines=30}
+df <- data[,c("loan_status","issue_d","grade")] 
+library(xts)
+#convert month-year to year-month-day format
+df2 <- as.Date(as.yearmon(paste0('01-',data$last_pymnt_d), "%d-%b-%Y"))
+df4 <- cbind(df,df2)
+
+#calculate the difference in dates to find time taken.
+colnames(df4)[4] <- "last_pymnt_d"
+df4 <- cbind(df4,as.POSIXct(df4$last_pymnt_d) - as.POSIXct(df4$issue_d))
+colnames(df4)[5] <- "actual_term" 
+df4$actual_term = df4$actual_term/(24*365)
+df5<-df4
+#convert hours to days
+library(dplyr)
+df4 <- df4 %>% subset(df$loan_status == "Fully Paid")
+
+#building the box plot
+df4 <- df4[c("actual_term","grade")]
+df4$actual_term = df4$actual_term/(24*365)
+library(ggplot2)
+ggplot(stack(df4), aes(x = df4$grade, y = df4$actual_term)) + geom_boxplot()
+
+
+```
+For the loans fully paid back the time to pay doesn't vary much to considerable difference. As you can see from the output of the box-plot for all the different grades there's not much difference considering the total time taken to repay the loan.
+In between grades have a slightly higher time taken to repay if you look at the extremes but other than that it's mostly the same for all the particulars.
+
+### (v) Calculate the annual return. Show how you calculate the percentage annual return. Is there any return from loans which are ‘charged off’? Explain. How does return from charged - off loans vary by loan grade? Compare the average return values with the average interest_rate on loans – do you notice any differences, and how do you explain this? How do returns vary by grade, and by sub-grade. If you wanted to invest in loans based on this data exploration, which loans would you invest in?
+```{r eight, output.lines=20}
+df <- data
+df6 <- as.numeric(df5$actual_term)
+df$annRet <- ifelse(df6>0, ((df$total_pymnt -df$funded_amnt)/df$funded_amnt)*(1/df6),0)
+
+df$perc_rt = (df$annRet/df$funded_amnt) * 100
+df2 <- df %>% group_by(grade) %>% summarise(nLoans=n(), defaults=sum(loan_status=="Charged Off"), avgInterest= mean(int_rate), stdInterest=sd(int_rate), avgLoanAMt=mean(loan_amnt), avgPmnt=mean(total_pymnt), avgRet=mean(annRet), stdRet=sd(annRet), minRet=min(annRet), maxRet=max(annRet))
+df2
+
+```
+The new column named "perc_rt" gives us the value of annualized percentage returns. So, basically what we do is divide the anuual return with the funded amount and multiply it with 100. The average return is higher for grade A,B and at the tail with G. The average return stays a bit unaffected with high increase in interest rate even though if increased not too much there's decrease in return. It can be explained by the lesser number of loans given out for E and F grades with also considerably lesser amount. Solely based on this I will invest in the grade B with highest annual returns, sufficient number of loans issued and a average to less defaults by proportion.
+
+### Generate some (at least 3) new derived attributes which you think may be useful for predicting default., and explain what these are.
+```{r nine, output.lines=30}
+df<-data
+df$total_intrest <- df$loan_amnt*df$int_rate*3
+df$total_uti <- df$revol_bal*df$revol_util
+df$total_rec_rate <- df$total_rec_late_fee/df$recoveries
+df
+```
+The first attribute is the total interest someone has to pay regardless of the fact that they be paying it or not. Based on this you can guess about the default rate.
+The second attribute talks about the total balance someone is using from the available one which can give you information about the money they are in need of which can be a better indicator if they have a default rather than they amount they loaned.
+The third attribute talks about the late fee rate which can help you the guess if they will be able to pay off the loan or not.
+
+### (b) Are there missing values? What is the proportion of missing values in different variables? Explain how you will handle missing values for different variables. You should consider what is the variable is about, and what missing values may arise from – for example, a variable monthsSinceLastDeliquency may have no value for someone who has not yet had a delinquency; what is a sensible value to replace the missing values in this case? Are there some variables you will exclude from your model due to missing values?
+```{r ten, output.lines=30}
+library(dplyr)
+df <- data
+#remove entirely empty columns
+df <- df %>% select_if(function(x){!all(is.na(x))})
+df <- df[colSums(is.na(df))>0]
+#For proportion of missing values in a column with missing values(In percentage, higher means more null values)
+nm <- colMeans(is.na(df))>0.7
+summary(df)
+
+name <- names(df)[nm]
+df <- df %>% select(-name)
+#replacing the missing values
+library(tidyverse)
+df<- df %>% replace_na(list(mths_since_last_delinq=500, revol_util=median(df$revol_util, na.rm=TRUE), bc_open_to_buy=median(df$bc_open_to_buy, na.rm=TRUE), mo_sin_old_il_acct=1000, mths_since_recent_bc=1000, mths_since_recent_inq=50, num_tl_120dpd_2m = median(df$num_tl_120dpd_2m, na.rm=TRUE),percent_bc_gt_75 = median(df$percent_bc_gt_75, na.rm=TRUE), bc_util=median(df$bc_util, na.rm=TRUE) ))
+```
+The proportions can be seen via the output of chunk ten. We should remove all the variable columns which have missing variables more than 60-70 percent as that's a lot of missing values hence it would be inappropriate to use the given values to predict the null ones as it might sway our predictions. As far as the missing values go we can replace them appropriate values which can be either the max, median or the mean depending upon it's meaning.
+
+## Consider the potential for data leakage. You do not want to include variables in your model which may not be available when applying the model; that is, some data may not be available for new loans before they are funded. Leakage may also arise from variables in the data which may have been updated during the loan period (ie., after the loan is funded). Identify and explain which variables will you exclude from the model.
+
+```{r eleven, output.lines=30}
+#Drop some other columns which are not useful and those which will cause 'leakage'
+df <- data
+df <- df %>% select(-c(funded_amnt_inv, term, emp_title, pymnt_plan, title, zip_code, addr_state, out_prncp, out_prncp_inv, total_pymnt_inv, total_rec_prncp, total_rec_int, last_credit_pull_d, policy_code, disbursement_method, debt_settlement_flag, hardship_flag, application_type))
+ 
+varsToRemove <- c("last_pymnt_d", "last_pymnt_amnt","id","member_id")
+df <- df %>% select(-varsToRemove)
+```
+These variables as seen in chunk 11 are removed as they won't be available to us not before the loan is finished or is in the process so we remove them.
+
+## Do a uni-variate analyses to determine which variables (from amongst those you decide to consider for the next stage prediction task) will be individually useful for predicting the dependent variable (loan_status). For this, you need a measure of relationship between the dependent variable and each of the potential predictor variables. Given loan-status as a binary dependent variable, which measure will you use? From your analyses using this measure, which variables do you think will be useful for predicting loan_status? (Note – if certain variables on their own are highly predictive of the outcome, it is good to ask if this variable has a leakage issue).
+```{r twelve, output.lines=30}
+df <- data
+#create training set
+Trn_frac = 0.75
+nr<-nrow(df)
+trnIndex<- sample(1:nr, size = round(Trn_frac * nr), replace=FALSE)
+dfTrn <- df[trnIndex, ]
+dfTst <- df[-trnIndex, ]
+dfTrn <- dfTrn [!( grepl("Current", dfTrn$loan_status)) , ]
+sum(dfTrn$loan_status=="Current")
+#univariate test
+library(pROC)
+#delete the current value from loan_status
+aucAll<- sapply(dfTrn %>% mutate_if(is.factor, as.numeric) %>% select_if(is.numeric), multiclass.roc, response=dfTrn$loan_status) 
+aucAll
+```
+We will use variables whose auc value is more than 0.5 so they will be able to give good prediction
