@@ -1,4 +1,4 @@
 # UIC IDS 572
-## Prathamesh-Reza-Sohee
+## Prathamesh-Sohee
 ### About
 IDS 572 Assignment One
